@@ -1,7 +1,7 @@
 # Objection
 
-Just for Learning.
+Just for learning how does Transformer work.
 
-## Getting Started
+# Getting Started
 
-Unfinished.
+Unfinished, it just have a raw docker environment till now.
