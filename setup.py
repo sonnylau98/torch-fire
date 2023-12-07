@@ -115,7 +115,7 @@ install_requires = [
 ]
 
 setup(
-    name="transformers",
+    name="torch-fire",
     include_package_data=True,
     zip_safe=False,
     install_requires=list(install_requires),
