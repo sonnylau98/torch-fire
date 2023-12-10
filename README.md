@@ -1,7 +1,11 @@
 # Objection
 
-Just for learning how does Transformer work.
+Just for learning how to use pytorch.
+
+# Resource
+
+[Dive into DL](https://zh.d2l.ai/chapter_attention-mechanisms/transformer.html)
 
 # Getting Started
 
-Unfinished, it just have a raw docker environment till now.
+Unfinished.
