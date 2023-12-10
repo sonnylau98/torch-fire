@@ -63,7 +63,7 @@ class MultiHeadAttention(nn.Module):
 
 class EncoderBlock(nn.Module):
 
-  def __init__(self, key_size, query_size, value_size, num_hiddens
+  def __init__(self, key_size, query_size, value_size, num_hiddens,
                norm_shape, ffn_num_input, ffn_num_hiddens, num_heads,
                dropout, use_bais=False, **kwargs):
     super(EncoderBlock, self).__init__(**kwargs)
