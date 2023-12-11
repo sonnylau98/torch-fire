@@ -13,7 +13,7 @@ def predict_seq2seq(net, src_sentence, src_vocab, tgt_vocab, num_steps,
 
   net.eval()
   src_tokens = src_vocab[src_sentence.lower().split(' ')] + [src_vocab['<eos>']]
-  enc_valid_len = # truncate_pad
+  enc_valid_len = truncate_pad(src_tokens, num_steps, src_vocab['<pad>'])
 
   enc_X = torch.unsqueeze(
     torch.tensor(src_tokens, dtype=torch.long, device=device, dim=0)
