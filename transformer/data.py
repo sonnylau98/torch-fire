@@ -1,3 +1,8 @@
+import collections
+
+import torch
+
+from torch import nn
 
 astype = lambda x, *args, **kwargs: x.type(*args, **kwargs)
 reduce_sum = lambda x, *args, **kwargs: x.sum(*args, **kwargs)
