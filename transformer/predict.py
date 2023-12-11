@@ -1,3 +1,13 @@
+###################################
+
+def truncate_pad(line, num_steps, padding_token):
+
+  if len(line) > num_steps:
+    return line[:num_steps]
+  return line + [padding_token] * (num_steps - len(line))
+
+###################################
+
 def predict_seq2seq(net, src_sentence, src_vocab, tgt_vocab, num_steps,
                     device, save_attention_weights=False):
 
