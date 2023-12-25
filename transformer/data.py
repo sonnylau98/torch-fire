@@ -1,10 +1,9 @@
 import torch
+
 import inspect
-
 import os
-
+import hashlib
 import requests
-
 import zipfile
 
 astype = lambda x, *args, **kwargs: x.type(*args, **kwargs)
