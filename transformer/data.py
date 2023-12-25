@@ -1,5 +1,4 @@
 import torch
-
 import inspect
 import os
 import hashlib
@@ -8,6 +7,9 @@ import zipfile
 
 astype = lambda x, *args, **kwargs: x.type(*args, **kwargs)
 reduce_sum = lambda x, *args, **kwargs: x.sum(*args, **kwargs)
+
+DATA_HUB = dict()
+DATA_URL = 'http://d2l-data.s3-accelerate.amazonaws.com/'
 
 def extract(filename, folder=None):
     """Extract a zip/tar file into folder.
@@ -84,8 +86,6 @@ class Vocab:
     @property
     def unk(self):  # Index for the unknown token
         return self.token_to_idx['<unk>']
-
-
 
 class HyperParameters:
     """The base class of hyperparameters."""
