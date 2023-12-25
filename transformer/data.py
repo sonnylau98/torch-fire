@@ -1,35 +1,41 @@
-import collections
-import hashlib
-
 import torch
+import inspect
 
-from torch import nn
+import os
+
+import requests
+
+import zipfile
 
 astype = lambda x, *args, **kwargs: x.type(*args, **kwargs)
 reduce_sum = lambda x, *args, **kwargs: x.sum(*args, **kwargs)
 
-###################
+def extract(filename, folder=None):
+    """Extract a zip/tar file into folder.
 
-DATA_HUB = dict()
-DATA_URL = 'http://d2l-data.s3-accelerate.amazonaws.com/'
+    Defined in :numref:`sec_utils`"""
+    base_dir = os.path.dirname(filename)
+    _, ext = os.path.splitext(filename)
+    assert ext in ('.zip', '.tar', '.gz'), 'Only support zip/tar files.'
+    if ext == '.zip':
+        fp = zipfile.ZipFile(filename, 'r')
+    else:
+        fp = tarfile.open(filename, 'r')
+    if folder is None:
+        folder = base_dir
+    fp.extractall(folder)
 
-DATA_HUB['kaggle_house_train'] = (
-    DATA_URL + 'kaggle_house_pred_train.csv',
-    '585e9cc93e70b39160e7921475f9bcd7d31219ce')
+def download(url, folder='../data', sha1_hash=None):
+    """Download a file to folder and return the local filepath.
 
-DATA_HUB['kaggle_house_test'] = (
-    DATA_URL + 'kaggle_house_pred_test.csv',
-    'fa19780a7b011d9b009e8bff8e99922a8ee2eb90')
-
-def download(name, cache_dir=os.path.join('..', 'data')):
-    """下载一个DATA_HUB中的文件，返回本地文件名
-
-    Defined in :numref:`sec_kaggle_house`"""
-    assert name in DATA_HUB, f"{name} 不存在于 {DATA_HUB}"
-    url, sha1_hash = DATA_HUB[name]
-    os.makedirs(cache_dir, exist_ok=True)
-    fname = os.path.join(cache_dir, url.split('/')[-1])
-    if os.path.exists(fname):
+    Defined in :numref:`sec_utils`"""
+    if not url.startswith('http'):
+        # For back compatability
+        url, sha1_hash = DATA_HUB[url]
+    os.makedirs(folder, exist_ok=True)
+    fname = os.path.join(folder, url.split('/')[-1])
+    # Check if hit cache
+    if os.path.exists(fname) and sha1_hash:
         sha1 = hashlib.sha1()
         with open(fname, 'rb') as f:
             while True:
@@ -38,114 +44,30 @@ def download(name, cache_dir=os.path.join('..', 'data')):
                     break
                 sha1.update(data)
         if sha1.hexdigest() == sha1_hash:
-            return fname  # 命中缓存
-    print(f'正在从{url}下载{fname}...')
+            return fname
+    # Download
+    print(f'Downloading {fname} from {url}...')
     r = requests.get(url, stream=True, verify=True)
     with open(fname, 'wb') as f:
         f.write(r.content)
     return fname
 
-def download_extract(name, folder=None):
-    """下载并解压zip/tar文件
-
-    Defined in :numref:`sec_kaggle_house`"""
-    fname = download(name)
-    base_dir = os.path.dirname(fname)
-    data_dir, ext = os.path.splitext(fname)
-    if ext == '.zip':
-        fp = zipfile.ZipFile(fname, 'r')
-    elif ext in ('.tar', '.gz'):
-        fp = tarfile.open(fname, 'r')
-    else:
-        assert False, '只有zip/tar文件可以被解压缩'
-    fp.extractall(base_dir)
-    return os.path.join(base_dir, folder) if folder else data_dir
-
-
-def preprocess_nmt(text):
-    """预处理“英语－法语”数据集
-
-    Defined in :numref:`sec_machine_translation`"""
-    def no_space(char, prev_char):
-        return char in set(',.!?') and prev_char != ' '
-
-    # 使用空格替换不间断空格
-    # 使用小写字母替换大写字母
-    text = text.replace('\u202f', ' ').replace('\xa0', ' ').lower()
-    # 在单词和标点符号之间插入空格
-    out = [' ' + char if i > 0 and no_space(char, text[i - 1]) else char
-           for i, char in enumerate(text)]
-    return ''.join(out)
-
-def tokenize_nmt(text, num_examples=None):
-    """词元化“英语－法语”数据数据集
-
-    Defined in :numref:`sec_machine_translation`"""
-    source, target = [], []
-    for i, line in enumerate(text.split('\n')):
-        if num_examples and i > num_examples:
-            break
-        parts = line.split('\t')
-        if len(parts) == 2:
-            source.append(parts[0].split(' '))
-            target.append(parts[1].split(' '))
-    return source, target
-
-def build_array_nmt(lines, vocab, num_steps):
-    """将机器翻译的文本序列转换成小批量
-
-    Defined in :numref:`subsec_mt_data_loading`"""
-    lines = [vocab[l] for l in lines]
-    lines = [l + [vocab['<eos>']] for l in lines]
-    array = torch.tensor([truncate_pad(
-        l, num_steps, vocab['<pad>']) for l in lines])
-    valid_len = reduce_sum(
-        astype(array != vocab['<pad>'], d2l.int32), 1)
-    return array, valid_len
-
-
-def load_array(data_arrays, batch_size, is_train=True):
-    """构造一个PyTorch数据迭代器
-
-    Defined in :numref:`sec_linear_concise`"""
-    dataset = data.TensorDataset(*data_arrays)
-    return data.DataLoader(dataset, batch_size, shuffle=is_train)
-###################
-
-####################
-
-def count_corpus(tokens):
-    """统计词元的频率
-
-    Defined in :numref:`sec_text_preprocessing`"""
-    # 这里的tokens是1D列表或2D列表
-    if len(tokens) == 0 or isinstance(tokens[0], list):
-        # 将词元列表展平成一个列表
-        tokens = [token for line in tokens for token in line]
-    return collections.Counter(tokens)
-
 class Vocab:
-    """文本词表"""
-    def __init__(self, tokens=None, min_freq=0, reserved_tokens=None):
-        """Defined in :numref:`sec_text_preprocessing`"""
-        if tokens is None:
-            tokens = []
-        if reserved_tokens is None:
-            reserved_tokens = []
-        # 按出现频率排序
-        counter = count_corpus(tokens)
-        self._token_freqs = sorted(counter.items(), key=lambda x: x[1],
-                                   reverse=True)
-        # 未知词元的索引为0
-        self.idx_to_token = ['<unk>'] + reserved_tokens
+    """Vocabulary for text."""
+    def __init__(self, tokens=[], min_freq=0, reserved_tokens=[]):
+        """Defined in :numref:`sec_text-sequence`"""
+        # Flatten a 2D list if needed
+        if tokens and isinstance(tokens[0], list):
+            tokens = [token for line in tokens for token in line]
+        # Count token frequencies
+        counter = collections.Counter(tokens)
+        self.token_freqs = sorted(counter.items(), key=lambda x: x[1],
+                                  reverse=True)
+        # The list of unique tokens
+        self.idx_to_token = list(sorted(set(['<unk>'] + reserved_tokens + [
+            token for token, freq in self.token_freqs if freq >= min_freq])))
         self.token_to_idx = {token: idx
                              for idx, token in enumerate(self.idx_to_token)}
-        for token, freq in self._token_freqs:
-            if freq < min_freq:
-                break
-            if token not in self.token_to_idx:
-                self.idx_to_token.append(token)
-                self.token_to_idx[token] = len(self.idx_to_token) - 1
 
     def __len__(self):
         return len(self.idx_to_token)
@@ -156,30 +78,126 @@ class Vocab:
         return [self.__getitem__(token) for token in tokens]
 
     def to_tokens(self, indices):
-        if not isinstance(indices, (list, tuple)):
-            return self.idx_to_token[indices]
-        return [self.idx_to_token[index] for index in indices]
+        if hasattr(indices, '__len__') and len(indices) > 1:
+            return [self.idx_to_token[int(index)] for index in indices]
+        return self.idx_to_token[indices]
 
     @property
-    def unk(self):  # 未知词元的索引为0
-        return 0
+    def unk(self):  # Index for the unknown token
+        return self.token_to_idx['<unk>']
 
-    @property
-    def token_freqs(self):
-        return self._token_freqs
 
-####################
 
-def load_data_nmt(batch_size, num_steps, num_examples=600):
+class HyperParameters:
+    """The base class of hyperparameters."""
+    def save_hyperparameters(self, ignore=[]):
+        """Defined in :numref:`sec_oo-design`"""
+        raise NotImplemented
 
-  text = preprocess_nmt(read_data_nmt()) 
-  source, target = tokenize_nmt(text,num_examples)
-  src_vocab = Vocab(source, min_freq=2,
-                    reserverd_tokens=['<pad>', '<bos>', '<eos>']) 
-  tgt_vocab = Vocab(target, min_freq=2,
-                    reserverd_tokens=['<pad>', '<bos>', '<eos>']) 
-  src_array, src_valid_len = build_array_nmt(source, src_vocab, num_steps)
-  tgt_array, tgt_valid_len = build_array_nmt(target, tgt_vocab, num_steps)
-  data_arrays = (src_array, src_valid_len, tgt_array, tgt_valid_len)
-  data_iter = load_array(data_arrays, batch_size)
-  return data_iter, src_vocab, tgt_vocab
+    def save_hyperparameters(self, ignore=[]):
+        """Save function arguments into class attributes.
+    
+        Defined in :numref:`sec_utils`"""
+        frame = inspect.currentframe().f_back
+        _, _, _, local_vars = inspect.getargvalues(frame)
+        self.hparams = {k:v for k, v in local_vars.items()
+                        if k not in set(ignore+['self']) and not k.startswith('_')}
+        for k, v in self.hparams.items():
+            setattr(self, k, v)
+
+class DataModule(HyperParameters):
+    """The base class of data.
+
+    Defined in :numref:`subsec_oo-design-models`"""
+    def __init__(self, root='../data', num_workers=4):
+        self.save_hyperparameters()
+
+    def get_dataloader(self, train):
+        raise NotImplementedError
+
+    def train_dataloader(self):
+        return self.get_dataloader(train=True)
+
+    def val_dataloader(self):
+        return self.get_dataloader(train=False)
+
+    def get_tensorloader(self, tensors, train, indices=slice(0, None)):
+        """Defined in :numref:`sec_synthetic-regression-data`"""
+        tensors = tuple(a[indices] for a in tensors)
+        dataset = torch.utils.data.TensorDataset(*tensors)
+        return torch.utils.data.DataLoader(dataset, self.batch_size,
+                                           shuffle=train)
+
+class MTFraEng(DataModule):
+    """The English-French dataset.
+
+    Defined in :numref:`sec_machine_translation`"""
+    def _download(self):
+        extract(download(
+            DATA_URL+'fra-eng.zip', self.root,
+            '94646ad1522d915e7b0f9296181140edcf86a4f5'))
+        with open(self.root + '/fra-eng/fra.txt', encoding='utf-8') as f:
+            return f.read()
+
+    def _preprocess(self, text):
+        """Defined in :numref:`sec_machine_translation`"""
+        # Replace non-breaking space with space
+        text = text.replace('\u202f', ' ').replace('\xa0', ' ')
+        # Insert space between words and punctuation marks
+        no_space = lambda char, prev_char: char in ',.!?' and prev_char != ' '
+        out = [' ' + char if i > 0 and no_space(char, text[i - 1]) else char
+               for i, char in enumerate(text.lower())]
+        return ''.join(out)
+
+    def _tokenize(self, text, max_examples=None):
+        """Defined in :numref:`sec_machine_translation`"""
+        src, tgt = [], []
+        for i, line in enumerate(text.split('\n')):
+            if max_examples and i > max_examples: break
+            parts = line.split('\t')
+            if len(parts) == 2:
+                # Skip empty tokens
+                src.append([t for t in f'{parts[0]} <eos>'.split(' ') if t])
+                tgt.append([t for t in f'{parts[1]} <eos>'.split(' ') if t])
+        return src, tgt
+
+    def __init__(self, batch_size, num_steps=9, num_train=512, num_val=128):
+        """Defined in :numref:`sec_machine_translation`"""
+        super(MTFraEng, self).__init__()
+        self.save_hyperparameters()
+        self.arrays, self.src_vocab, self.tgt_vocab = self._build_arrays(
+            self._download())
+
+    def _build_arrays(self, raw_text, src_vocab=None, tgt_vocab=None):
+        """Defined in :numref:`subsec_loading-seq-fixed-len`"""
+        def _build_array(sentences, vocab, is_tgt=False):
+            pad_or_trim = lambda seq, t: (
+                seq[:t] if len(seq) > t else seq + ['<pad>'] * (t - len(seq)))
+            sentences = [pad_or_trim(s, self.num_steps) for s in sentences]
+            if is_tgt:
+                sentences = [['<bos>'] + s for s in sentences]
+            if vocab is None:
+                vocab = Vocab(sentences, min_freq=2)
+            array = torch.tensor([vocab[s] for s in sentences])
+            valid_len = reduce_sum(
+                astype(array != vocab['<pad>'], torch.int32), 1)
+            return array, vocab, valid_len
+        src, tgt = self._tokenize(self._preprocess(raw_text),
+                                  self.num_train + self.num_val)
+        src_array, src_vocab, src_valid_len = _build_array(src, src_vocab)
+        tgt_array, tgt_vocab, _ = _build_array(tgt, tgt_vocab, True)
+        return ((src_array, tgt_array[:,:-1], src_valid_len, tgt_array[:,1:]),
+                src_vocab, tgt_vocab)
+
+    def get_dataloader(self, train):
+        """Defined in :numref:`subsec_loading-seq-fixed-len`"""
+        idx = slice(0, self.num_train) if train else slice(self.num_train, None)
+        return self.get_tensorloader(self.arrays, train, idx)
+
+    def build(self, src_sentences, tgt_sentences):
+        """Defined in :numref:`subsec_loading-seq-fixed-len`"""
+        raw_text = '\n'.join([src + '\t' + tgt for src, tgt in zip(
+            src_sentences, tgt_sentences)])
+        arrays, _, _ = self._build_arrays(
+            raw_text, self.src_vocab, self.tgt_vocab)
+        return arrays
