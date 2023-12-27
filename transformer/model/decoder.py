@@ -57,7 +57,7 @@ class TransformerDecoder(AttentionDecoder):
         self.num_hiddens = num_hiddens
         self.num_blks = num_blks
         self.embedding = nn.Embedding(vocab_size, num_hiddens)
-        self.pos_encoding = d2l.PositionalEncoding(num_hiddens, dropout)
+        self.pos_encoding = PositionalEncoding(num_hiddens, dropout)
         self.blks = nn.Sequential()
         for i in range(num_blks):
             self.blks.add_module("block"+str(i), TransformerDecoderBlock(
