@@ -143,7 +143,7 @@ class PositionalEncoding(nn.Module):
     X = X + self.P[:, :X.shape[1], :].to(X.device)
     return self.dropout(X)
 
-
+'''
 class TransformerEncoder(Encoder):
 
   def __init__(self, vocab_size, key_size, query_size, value_size,
@@ -166,6 +166,8 @@ class TransformerEncoder(Encoder):
       X = blk(X, valid_lens)
       self.attention_weights[i] = blk.attention.attention.attention_weights
     return X
+'''
+
 
 
 class DecoderBlock(nn.Module):
