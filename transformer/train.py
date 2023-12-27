@@ -104,7 +104,7 @@ class Animator:
         display.clear_output(wait=True)
 #####################################################
 
-def train_seq2seq(net, data_iter, lr, num_epochs, tgt_vocab, device)
+def train_seq2seq(net, data_iter, lr, num_epochs, tgt_vocab, device):
 
   def xavier_init_weights(m):
     if type(m) == nn.Linear:
