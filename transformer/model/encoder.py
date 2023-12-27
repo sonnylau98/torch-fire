@@ -3,6 +3,25 @@ import pandas as pd
 import torch
 from torch import nn
 
+def masked_softmax(X, valid_lens):
+  def _sequence_mask(X, valid_len, value=0):
+    maxlen = X.size(1)
+    mask = torch.arange((maxlen), dtype=torch.float32,
+                        device=X.device)[None, :] < valid_len[:, None]
+    X[~mask] = value
+    return X
+  
+  if valid_lens is None:
+    return nn.functional.softmax(X, dim=-1)
+  else:
+    shape = X.shape
+    if valid_lens.dim() == 1:
+      valid_lens = torch.repeat_interleave(valid_lens, shape[1])
+    else:
+      valid_lens = valid_lens.reshape(-1)
+    X = _sequence_mask(X.reshape(-1, shape[-1]), valid_lens, value=-1e6)
+    return nn.functional.softmax(X.reshape(shape), dim=-1)
+
 class DotProductAttention(nn.Module):
   def __init__(self, dropout):
     super().__init__()
@@ -26,7 +45,7 @@ class MultiHeadAttention(nn.Module):
     self.W_o = nn.LazyLinear(num_hiddens, bias=bias)
 
   def forward(self, queries, keys, values, valid_lens):
-    quries = self.transpose_qkv(self.W_q(queries))
+    queries = self.transpose_qkv(self.W_q(queries))
     keys = self.transpose_qkv(self.W_k(keys))
     values = self.transpose_qkv(self.W_v(values))
     if valid_lens is not None:
@@ -42,7 +61,7 @@ class MultiHeadAttention(nn.Module):
 
   def transpose_output(self, X):
     X = X.reshape(-1, self.num_heads, X.shape[1], X.shape[2])
-    X = permute(0, 2, 1, 3)
+    X = X.permute(0, 2, 1, 3)
     return X.reshape(X.shape[0], X.shape[1], -1)
 
 class PositionWiseFFN(nn.Module):
