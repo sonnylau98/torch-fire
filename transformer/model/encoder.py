@@ -1,28 +1,23 @@
 from torch.nn import MultiheadAttention
 
-################################################
 class PositionWiseFFN(nn.Module):
-    """The positionwise feed-forward network."""
-    def __init__(self, ffn_num_input, ffn_num_hiddens, ffn_num_outputs,
-                 **kwargs):
-        super(PositionWiseFFN, self).__init__(**kwargs)
-        self.dense1 = nn.Linear(ffn_num_input, ffn_num_hiddens)
-        self.relu = nn.ReLU()
-        self.dense2 = nn.Linear(ffn_num_hiddens, ffn_num_outputs)
+  def __init__(self, ffn_num_hiddens, ffn_num_outputs):
+    super().__init__()
+    self.dense1 = nn.LazyLinear(ffn_num_hiddens)
+    self.relu = nn.ReLU()
+    self.dense2 = nn.LazyLinear(ffn_num_outputs)
 
-    def forward(self, X):
-        return self.dense2(self.relu(self.dense1(X)))
+  def forward(self, X):
+    return self.dense2(self.relu(self.dense1(X)))
 
 class AddNorm(nn.Module):
-    """The residual connection followed by layer normalization."""
-    def __init__(self, normalized_shape, dropout, **kwargs):
-        super(AddNorm, self).__init__(**kwargs)
-        self.dropout = nn.Dropout(dropout)
-        self.ln = nn.LayerNorm(normalized_shape)
+  def __init__(self, norm_shape, dropout):
+    super().__init__()
+    self.dropout = nn.Dropout(dropout)
+    self.ln = nn.LayerNorm(norm_shape)
 
-    def forward(self, X, Y):
-        return self.ln(self.dropout(Y) + X)
-################################################
+  def forward(self, X, Y):
+    return self.ln(self.dropout(Y) + X)
 
 class TransformerEncoderBlock(nn.Module):
   def __init__(self, num_hiddens, ffn_num_hiddens, num_heads, dropout,
