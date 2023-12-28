@@ -204,6 +204,3 @@ class MTFraEng(DataModule):
         arrays, _, _ = self._build_arrays(
             raw_text, self.src_vocab, self.tgt_vocab)
         return arrays
-
-if __name__ == "main":
-  data = MTFraEng(batch_size=128)
